@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './BrandKit.scss';
 
 const VARIANTS = {
@@ -14,7 +14,15 @@ const VARIANTS = {
     dark:  { bg: '#0B0B1A', accent: '#FF2E88', middle: '#00E5FF' },
     light: { bg: '#FFF5F8', accent: '#FF2E88', middle: '#1A1A3A' },
   },
+  noir: {
+    name: 'Noir',
+    tagline: 'Premium',
+    dark:  { bg: '#0A0A0F', accent: '#FF2E88', middle: '#EDEDE8' },
+    light: { bg: '#FAFAF7', accent: '#FF2E88', middle: '#0A0A0F' },
+  },
 };
+
+const STORAGE_KEY = 'brandkit-selected';
 
 const Logo = ({ palette }) => (
   <span className="brandkit__logo" style={{ color: palette.accent }}>
@@ -39,12 +47,17 @@ const Swatch = ({ hex, label }) => (
   </div>
 );
 
-const VariantCard = ({ variant, theme }) => {
+const VariantCard = ({ id, variant, theme, isSelected, onSelect }) => {
   const palette = variant[theme];
   return (
     <article
-      className={`brandkit__card brandkit__card--${theme}`}
-      style={{ background: palette.bg }}
+      className={`brandkit__card brandkit__card--${theme}${isSelected ? ' is-selected' : ''}`}
+      style={{ background: palette.bg, '--card-accent': palette.accent }}
+      onClick={() => onSelect(id)}
+      role="radio"
+      aria-checked={isSelected}
+      tabIndex={0}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(id)}
     >
       <header className="brandkit__card-header">
         <h2 style={{ color: palette.middle }}>{variant.name}</h2>
@@ -58,20 +71,52 @@ const VariantCard = ({ variant, theme }) => {
         <Swatch hex={palette.middle} label='"bits" (1.3×)' />
         <Swatch hex={palette.bg}     label="Background" />
       </footer>
+      <button
+        className="brandkit__select-btn"
+        style={{
+          background: isSelected ? palette.accent : 'transparent',
+          color: isSelected ? palette.bg : palette.accent,
+          borderColor: palette.accent,
+        }}
+        onClick={(e) => { e.stopPropagation(); onSelect(id); }}
+      >
+        {isSelected ? '✓ Selected' : 'Use this theme'}
+      </button>
     </article>
   );
 };
 
 export default function BrandKit() {
   const [theme, setTheme] = useState('dark');
+  const [selected, setSelected] = useState(() => {
+    if (typeof window === 'undefined') return 'coral';
+    return window.localStorage.getItem(STORAGE_KEY) || 'coral';
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, selected);
+  }, [selected]);
+
   const isDark = theme === 'dark';
+  const activeAccent = VARIANTS[selected][theme].accent;
 
   return (
-    <div className={`brandkit brandkit--${theme}`}>
+    <div
+      className={`brandkit brandkit--${theme}`}
+      style={{ '--active-accent': activeAccent }}
+      role="radiogroup"
+      aria-label="Theme variant"
+    >
       <header className="brandkit__top">
         <div>
           <h1>0xbits.io — Brand Kit</h1>
-          <p>Dancing Script · Bold 700 · "bits" scaled 1.3×</p>
+          <p>
+            Active theme:{' '}
+            <strong style={{ color: activeAccent }}>
+              {VARIANTS[selected].name}
+            </strong>{' '}
+            · Click a card to switch
+          </p>
         </div>
         <button
           className="brandkit__toggle"
@@ -88,14 +133,22 @@ export default function BrandKit() {
       </header>
 
       <section className="brandkit__grid">
-        <VariantCard variant={VARIANTS.coral} theme={theme} />
-        <VariantCard variant={VARIANTS.tokyo} theme={theme} />
+        {Object.entries(VARIANTS).map(([id, variant]) => (
+          <VariantCard
+            key={id}
+            id={id}
+            variant={variant}
+            theme={theme}
+            isSelected={selected === id}
+            onSelect={setSelected}
+          />
+        ))}
       </section>
 
       <footer className="brandkit__notes">
         <p>
-          The accent colour stays constant within each variant. Only the
-          middle "bits" flips for contrast when toggling light/dark.
+          Your choice is saved locally and applies the accent across the
+          page chrome. Light/dark flips all three at once.
         </p>
       </footer>
     </div>
